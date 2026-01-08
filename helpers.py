@@ -33,6 +33,110 @@ def GetOS():
     return wx.PlatformInformation.Get().GetOperatingSystemIdName()
 
 
+def get_windows_locking_processes(path: str):
+    """Best-effort list of processes locking a file on Windows.
+
+    Uses the Windows Restart Manager API (rstrtmgr.dll). Returns an empty list on
+    non-Windows platforms or if the API is unavailable.
+    """
+    if os.name != "nt":
+        return []
+
+    try:
+        import ctypes
+        from ctypes import wintypes
+    except Exception:
+        return []
+
+    ERROR_MORE_DATA = 234
+    CCH_RM_SESSION_KEY = 32
+    CCH_RM_MAX_APP_NAME = 255
+    CCH_RM_MAX_SVC_NAME = 63
+
+    class RM_UNIQUE_PROCESS(ctypes.Structure):
+        _fields_ = [
+            ("dwProcessId", wintypes.DWORD),
+            ("ProcessStartTime", wintypes.FILETIME),
+        ]
+
+    class RM_PROCESS_INFO(ctypes.Structure):
+        _fields_ = [
+            ("Process", RM_UNIQUE_PROCESS),
+            ("strAppName", wintypes.WCHAR * (CCH_RM_MAX_APP_NAME + 1)),
+            ("strServiceShortName", wintypes.WCHAR * (CCH_RM_MAX_SVC_NAME + 1)),
+            ("ApplicationType", wintypes.DWORD),
+            ("AppStatus", wintypes.DWORD),
+            ("TSSessionId", wintypes.DWORD),
+            ("bRestartable", wintypes.BOOL),
+        ]
+
+    try:
+        rstrtmgr = ctypes.WinDLL("rstrtmgr")  # pylint: disable=invalid-name
+    except Exception:
+        return []
+
+    session_handle = wintypes.DWORD()
+    session_key = (wintypes.WCHAR * (CCH_RM_SESSION_KEY + 1))()
+    try:
+        res = rstrtmgr.RmStartSession(ctypes.byref(session_handle), 0, session_key)
+        if res != 0:
+            return []
+
+        resources = (wintypes.LPCWSTR * 1)()
+        resources[0] = path
+        res = rstrtmgr.RmRegisterResources(
+            session_handle, 1, resources, 0, None, 0, None
+        )
+        if res != 0:
+            return []
+
+        needed = wintypes.DWORD(0)
+        count = wintypes.DWORD(0)
+        reboot_reasons = wintypes.DWORD(0)
+        res = rstrtmgr.RmGetList(
+            session_handle,
+            ctypes.byref(needed),
+            ctypes.byref(count),
+            None,
+            ctypes.byref(reboot_reasons),
+        )
+        if res not in (0, ERROR_MORE_DATA):
+            return []
+
+        if needed.value == 0:
+            return []
+
+        count = wintypes.DWORD(needed.value)
+        proc_info = (RM_PROCESS_INFO * count.value)()
+        res = rstrtmgr.RmGetList(
+            session_handle,
+            ctypes.byref(needed),
+            ctypes.byref(count),
+            proc_info,
+            ctypes.byref(reboot_reasons),
+        )
+        if res != 0:
+            return []
+
+        out = []
+        for i in range(count.value):
+            info = proc_info[i]
+            out.append(
+                {
+                    "pid": int(info.Process.dwProcessId),
+                    "app_name": str(info.strAppName).strip("\x00"),
+                    "service": str(info.strServiceShortName).strip("\x00"),
+                    "app_type": int(info.ApplicationType),
+                }
+            )
+        return out
+    finally:
+        try:
+            rstrtmgr.RmEndSession(session_handle)
+        except Exception:
+            pass
+
+
 def GetScaleFactor(window):
     """Workaround if wxWidgets Version does not support GetDPIScaleFactor, for Mac OS always return 1.0."""
     if "Apple Mac OS" in GetOS():
