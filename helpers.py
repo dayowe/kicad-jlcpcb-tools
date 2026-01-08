@@ -1,8 +1,10 @@
 """Contains helper function used all over the plugin."""
 
+import hashlib
 import os
 from pathlib import Path
 import re
+import tempfile
 
 import wx  # pylint: disable=import-error
 import wx.dataview  # pylint: disable=import-error
@@ -31,6 +33,36 @@ def getVersion():
 def GetOS():
     """Get String with OS type."""
     return wx.PlatformInformation.Get().GetOperatingSystemIdName()
+
+
+def is_wsl_unc_path(path: str) -> bool:
+    """Returns True if the path points to a WSL UNC share from Windows."""
+    if os.name != "nt":
+        return False
+    p = (path or "").replace("\\", "/").lower()
+    return p.startswith("//wsl.localhost/") or p.startswith("//wsl$/")
+
+
+def get_project_db_path(project_path: str) -> str:
+    """Return the path to the per-project SQLite database used by the plugin.
+
+    On Windows, SQLite file locking can be unreliable on network shares (including
+    WSL UNC paths like \\\\wsl$ and //wsl.localhost). For such projects, store the
+    database under LOCALAPPDATA instead, while keeping generated fabrication files
+    in the project folder.
+    """
+    if os.name != "nt" or not is_wsl_unc_path(project_path):
+        return os.path.join(project_path, "jlcpcb", "project.db")
+
+    base = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+    if not base:
+        base = tempfile.gettempdir()
+
+    normalized = project_path.replace("\\", "/")
+    project_id = hashlib.sha1(normalized.encode("utf-8"), usedforsecurity=False).hexdigest()  # nosec B303
+    dbdir = os.path.join(base, "kicad-jlcpcb-tools", "projects", project_id)
+    Path(dbdir).mkdir(parents=True, exist_ok=True)
+    return os.path.join(dbdir, "project.db")
 
 
 def get_windows_locking_processes(path: str):

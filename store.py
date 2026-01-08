@@ -13,6 +13,7 @@ from .helpers import (
     get_exclude_from_bom,
     get_exclude_from_pos,
     get_lcsc_value,
+    get_project_db_path,
     get_valid_footprints,
     get_windows_locking_processes,
     natural_sort_collation,
@@ -30,7 +31,7 @@ class Store:
         self.project_path = project_path
         self.board = board
         self.datadir = os.path.join(self.project_path, "jlcpcb")
-        self.dbfile = os.path.join(self.datadir, "project.db")
+        self.dbfile = get_project_db_path(self.project_path)
         self.order_by = "reference"
         self.order_dir = "ASC"
         self.setup()

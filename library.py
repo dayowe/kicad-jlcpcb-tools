@@ -19,7 +19,7 @@ from .events import (
     DownloadStartedEvent,
     MessageEvent,
 )
-from .helpers import PLUGIN_PATH, dict_factory, natural_sort_collation
+from .helpers import PLUGIN_PATH, dict_factory, get_project_db_path, natural_sort_collation
 from .unzip_parts import unzip_parts
 
 
@@ -52,9 +52,7 @@ class Library:
         self.datadir = os.path.join(PLUGIN_PATH, "jlcpcb")
         self.partsdb_file = os.path.join(self.datadir, "parts-fts5.db")
         self.rotationsdb_file = os.path.join(self.datadir, "rotations.db")
-        self.localcorrectionsdb_file = os.path.join(
-            self.parent.project_path, "jlcpcb", "project.db"
-        )
+        self.localcorrectionsdb_file = get_project_db_path(self.parent.project_path)
         self.globalcorrectionsdb_file = os.path.join(self.datadir, "corrections.db")
         self.correctionsdb_file = (
             self.globalcorrectionsdb_file
