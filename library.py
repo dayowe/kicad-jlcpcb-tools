@@ -42,6 +42,8 @@ class LibraryState(Enum):
 class Library:
     """A storage class to get data from a sqlite database and write it back."""
 
+    SQLITE_TIMEOUT_S = 30.0
+
     def __init__(self, parent):
         self.logger = logging.getLogger(__name__)
         self.parent = parent
@@ -110,7 +112,9 @@ class Library:
         try:
             with (
                 contextlib.closing(
-                    sqlite3.connect(self.localcorrectionsdb_file)
+                    sqlite3.connect(
+                        self.localcorrectionsdb_file, timeout=self.SQLITE_TIMEOUT_S
+                    )
                 ) as ldb,
                 ldb as lcur,
             ):
@@ -139,7 +143,9 @@ class Library:
             try:
                 with (
                     contextlib.closing(
-                        sqlite3.connect(self.localcorrectionsdb_file)
+                        sqlite3.connect(
+                            self.localcorrectionsdb_file, timeout=self.SQLITE_TIMEOUT_S
+                        )
                     ) as con,
                     con as cur,
                 ):
@@ -314,7 +320,9 @@ class Library:
         """Create the correction table."""
         self.logger.debug("Create SQLite table for corrections")
         with (
-            contextlib.closing(sqlite3.connect(self.correctionsdb_file)) as con,
+            contextlib.closing(
+                sqlite3.connect(self.correctionsdb_file, timeout=self.SQLITE_TIMEOUT_S)
+            ) as con,
             con as cur,
         ):
             cur.execute(
@@ -325,7 +333,9 @@ class Library:
     def get_correction_data(self, regex):
         """Get the correction data by its regex."""
         with (
-            contextlib.closing(sqlite3.connect(self.correctionsdb_file)) as con,
+            contextlib.closing(
+                sqlite3.connect(self.correctionsdb_file, timeout=self.SQLITE_TIMEOUT_S)
+            ) as con,
             con as cur,
         ):
             return cur.execute(
@@ -335,7 +345,9 @@ class Library:
     def delete_correction_data(self, regex):
         """Delete a correction from the database."""
         with (
-            contextlib.closing(sqlite3.connect(self.correctionsdb_file)) as con,
+            contextlib.closing(
+                sqlite3.connect(self.correctionsdb_file, timeout=self.SQLITE_TIMEOUT_S)
+            ) as con,
             con as cur,
         ):
             cur.execute(f"DELETE FROM correction WHERE regex = '{regex}'")
@@ -344,7 +356,9 @@ class Library:
     def update_correction_data(self, regex, rotation, offset):
         """Update a correction in the database."""
         with (
-            contextlib.closing(sqlite3.connect(self.correctionsdb_file)) as con,
+            contextlib.closing(
+                sqlite3.connect(self.correctionsdb_file, timeout=self.SQLITE_TIMEOUT_S)
+            ) as con,
             con as cur,
         ):
             cur.execute(
@@ -355,7 +369,9 @@ class Library:
     def insert_correction_data(self, regex, rotation, offset):
         """Insert a correction into the database."""
         with (
-            contextlib.closing(sqlite3.connect(self.correctionsdb_file)) as con,
+            contextlib.closing(
+                sqlite3.connect(self.correctionsdb_file, timeout=self.SQLITE_TIMEOUT_S)
+            ) as con,
             con as cur,
         ):
             cur.execute(
@@ -367,7 +383,9 @@ class Library:
     def get_all_correction_data(self):
         """Get all corrections from the database."""
         with (
-            contextlib.closing(sqlite3.connect(self.correctionsdb_file)) as con,
+            contextlib.closing(
+                sqlite3.connect(self.correctionsdb_file, timeout=self.SQLITE_TIMEOUT_S)
+            ) as con,
             con as cur,
         ):
             try:
@@ -698,7 +716,9 @@ class Library:
             return
         with (
             contextlib.closing(sqlite3.connect(self.rotationsdb_file)) as rdb,
-            contextlib.closing(sqlite3.connect(self.correctionsdb_file)) as cdb,
+            contextlib.closing(
+                sqlite3.connect(self.correctionsdb_file, timeout=self.SQLITE_TIMEOUT_S)
+            ) as cdb,
             rdb as rcur,
             cdb as ccur,
         ):
@@ -728,7 +748,9 @@ class Library:
         """Migrate existing rotations from parts db to correction db."""
         with (
             contextlib.closing(sqlite3.connect(self.partsdb_file)) as pdb,
-            contextlib.closing(sqlite3.connect(self.correctionsdb_file)) as rdb,
+            contextlib.closing(
+                sqlite3.connect(self.correctionsdb_file, timeout=self.SQLITE_TIMEOUT_S)
+            ) as rdb,
             pdb as pcur,
             rdb as rcur,
         ):

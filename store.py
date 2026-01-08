@@ -21,6 +21,8 @@ from .helpers import (
 class Store:
     """A storage class to get data from a sqlite database and write it back."""
 
+    SQLITE_TIMEOUT_S = 30.0
+
     def __init__(self, parent, project_path, board):
         self.logger = logging.getLogger(__name__)
         self.parent = parent
@@ -69,7 +71,9 @@ class Store:
 
     def create_db(self):
         """Create the sqlite database tables."""
-        with contextlib.closing(sqlite3.connect(self.dbfile)) as con, con as cur:
+        with contextlib.closing(
+            sqlite3.connect(self.dbfile, timeout=self.SQLITE_TIMEOUT_S)
+        ) as con, con as cur:
             cur.execute(
                 "CREATE TABLE IF NOT EXISTS part_info ("
                 "reference NOT NULL PRIMARY KEY,"
@@ -85,7 +89,9 @@ class Store:
 
     def read_all(self) -> dict:
         """Read all parts from the database."""
-        with contextlib.closing(sqlite3.connect(self.dbfile)) as con, con as cur:
+        with contextlib.closing(
+            sqlite3.connect(self.dbfile, timeout=self.SQLITE_TIMEOUT_S)
+        ) as con, con as cur:
             con.create_collation("naturalsort", natural_sort_collation)
             con.row_factory = dict_factory
             return cur.execute(
@@ -94,7 +100,9 @@ class Store:
 
     def read_bom_parts(self) -> dict:
         """Read all parts that should be included in the BOM."""
-        with contextlib.closing(sqlite3.connect(self.dbfile)) as con, con as cur:
+        with contextlib.closing(
+            sqlite3.connect(self.dbfile, timeout=self.SQLITE_TIMEOUT_S)
+        ) as con, con as cur:
             con.row_factory = dict_factory
             # Query all parts that are supposed to be in the BOM an have an lcsc number, group the references together
             subquery = "SELECT value, reference, footprint, lcsc FROM part_info WHERE exclude_from_bom = '0' AND lcsc != '' ORDER BY lcsc, reference"
@@ -107,7 +115,9 @@ class Store:
 
     def create_part(self, part: dict):
         """Create a part in the database."""
-        with contextlib.closing(sqlite3.connect(self.dbfile)) as con, con as cur:
+        with contextlib.closing(
+            sqlite3.connect(self.dbfile, timeout=self.SQLITE_TIMEOUT_S)
+        ) as con, con as cur:
             cur.execute(
                 "INSERT INTO part_info VALUES (:reference, :value, :footprint, :lcsc, '', :exclude_from_bom, :exclude_from_pos)",
                 part,
@@ -116,7 +126,9 @@ class Store:
 
     def update_part(self, part: dict):
         """Update a part in the database, overwrite lcsc if supplied."""
-        with contextlib.closing(sqlite3.connect(self.dbfile)) as con, con as cur:
+        with contextlib.closing(
+            sqlite3.connect(self.dbfile, timeout=self.SQLITE_TIMEOUT_S)
+        ) as con, con as cur:
             cur.execute(
                 "UPDATE part_info set value = :value, footprint = :footprint, lcsc = :lcsc, exclude_from_bom = :exclude_from_bom, exclude_from_pos = :exclude_from_pos WHERE reference = :reference",
                 part,
@@ -125,7 +137,9 @@ class Store:
 
     def get_part(self, ref: str) -> dict:
         """Get a part from the database by its reference."""
-        with contextlib.closing(sqlite3.connect(self.dbfile)) as con, con as cur:
+        with contextlib.closing(
+            sqlite3.connect(self.dbfile, timeout=self.SQLITE_TIMEOUT_S)
+        ) as con, con as cur:
             con.row_factory = dict_factory
             return cur.execute(
                 "SELECT * FROM part_info WHERE reference = :reference",
@@ -134,7 +148,9 @@ class Store:
 
     def set_stock(self, ref: str, stock: Union[int, None]):
         """Set the stock value for a part in the database."""
-        with contextlib.closing(sqlite3.connect(self.dbfile)) as con, con as cur:
+        with contextlib.closing(
+            sqlite3.connect(self.dbfile, timeout=self.SQLITE_TIMEOUT_S)
+        ) as con, con as cur:
             cur.execute(
                 "UPDATE part_info SET stock = :stock WHERE reference = :reference",
                 {"reference": ref, "stock": stock},
@@ -143,7 +159,9 @@ class Store:
 
     def set_bom(self, ref: str, state: int):
         """Change the BOM attribute for a part in the database."""
-        with contextlib.closing(sqlite3.connect(self.dbfile)) as con, con as cur:
+        with contextlib.closing(
+            sqlite3.connect(self.dbfile, timeout=self.SQLITE_TIMEOUT_S)
+        ) as con, con as cur:
             cur.execute(
                 "UPDATE part_info SET exclude_from_bom = :state WHERE reference = :reference",
                 {"reference": ref, "state": state},
@@ -152,7 +170,9 @@ class Store:
 
     def set_pos(self, ref: str, state: int):
         """Change the POS attribute for a part in the database."""
-        with contextlib.closing(sqlite3.connect(self.dbfile)) as con, con as cur:
+        with contextlib.closing(
+            sqlite3.connect(self.dbfile, timeout=self.SQLITE_TIMEOUT_S)
+        ) as con, con as cur:
             cur.execute(
                 "UPDATE part_info SET exclude_from_pos = :state WHERE reference = :reference",
                 {"reference": ref, "state": state},
@@ -161,7 +181,9 @@ class Store:
 
     def set_lcsc(self, ref: str, lcsc: str):
         """Change the LCSC attribute for a part in the database."""
-        with contextlib.closing(sqlite3.connect(self.dbfile)) as con, con as cur:
+        with contextlib.closing(
+            sqlite3.connect(self.dbfile, timeout=self.SQLITE_TIMEOUT_S)
+        ) as con, con as cur:
             cur.execute(
                 "UPDATE part_info SET lcsc = :lcsc WHERE reference = :reference",
                 {"reference": ref, "lcsc": lcsc},
@@ -238,7 +260,9 @@ class Store:
     def clean_database(self):
         """Delete all parts from the database that are no longer present on the board."""
         refs = [f"'{fp.GetReference()}'" for fp in get_valid_footprints(self.board)]
-        with contextlib.closing(sqlite3.connect(self.dbfile)) as con, con as cur:
+        with contextlib.closing(
+            sqlite3.connect(self.dbfile, timeout=self.SQLITE_TIMEOUT_S)
+        ) as con, con as cur:
             cur.execute(
                 f"DELETE FROM part_info WHERE reference NOT IN ({','.join(refs)})"
             )
